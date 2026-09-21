@@ -52,6 +52,7 @@ const rooftops = rows.map(r => {
     name: r.rooftop_name,
     enterpriseId: r.enterprise_id,
     enterprise: r.enterprise_name,
+    domain: r['Company Domain '] || r['Company Domain'] || '',
     csm: r.csm_poc,
     stage: r['Product Stage'],
     city: r.city,

@@ -388,6 +388,7 @@ function selectState(abbr){
 const COLUMNS = [
   { key:'name', label:'Rooftop' },
   { key:'enterprise', label:'Group / Company' },
+  { key:'domain', label:'Company Domain' },
   { key:'city', label:'City' },
   { key:'state', label:'State' },
   { key:'stage', label:'Stage' },
@@ -416,7 +417,7 @@ function renderTable(filtered){
   let rows = abbr ? filtered.filter(r => r.stateAbbr === abbr) : filtered;
   if (state.search){
     const q = state.search.toLowerCase();
-    rows = rows.filter(r => (r.name+' '+r.enterprise+' '+r.city).toLowerCase().includes(q));
+    rows = rows.filter(r => (r.name+' '+r.enterprise+' '+r.domain+' '+r.city).toLowerCase().includes(q));
   }
   rows = rows.slice().sort((a,b) => {
     const av = (a[state.sortKey]||''), bv = (b[state.sortKey]||'');
@@ -430,7 +431,7 @@ function renderTable(filtered){
   const tbody = document.getElementById('tbody');
   tbody.innerHTML = '';
   if (!rows.length){
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No rooftops match these filters.</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No rooftops match these filters.</td></tr>';
     return;
   }
   rows.forEach(r => {
@@ -440,6 +441,7 @@ function renderTable(filtered){
     tr.innerHTML = `
       <td>${r.name}</td>
       <td>${r.enterprise}</td>
+      <td>${r.domain ? `<a href="https://${r.domain}" target="_blank" rel="noopener">${r.domain}</a>` : ''}</td>
       <td>${r.city || ''}</td>
       <td>${r.state || '—'}</td>
       <td><span class="pill" style="background:${color}">${r.stage}</span></td>
