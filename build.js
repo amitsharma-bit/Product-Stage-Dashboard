@@ -1,5 +1,5 @@
 const fs = require('fs');
-const { geoAlbersUsa, geoPath, geoContains, geoCentroid } = require('d3-geo');
+const { geoContains } = require('d3-geo');
 const topojson = require('topojson-client');
 const { data: rows } = require('./parse.js');
 
@@ -24,21 +24,15 @@ const FIPS = {
 
 geo.features.forEach(f => { f.abbr = (FIPS[f.id] || [null])[0]; f.stateName = (FIPS[f.id] || [null, null])[1]; });
 
-// Albers USA projection sized for a ~975x610 viewBox (standard bl.ocks size)
-const projection = geoAlbersUsa().scale(1300).translate([487.5, 305]);
-const path = geoPath(projection);
+// raw (unprojected) GeoJSON for Leaflet - it does its own projection from lat/lng
+const stateGeo = {
+  type: 'FeatureCollection',
+  features: geo.features
+    .filter(f => f.abbr && f.abbr !== 'PR')
+    .map(f => ({ type: 'Feature', properties: { abbr: f.abbr, name: f.stateName }, geometry: f.geometry }))
+};
 
-const paths = geo.features
-  .filter(f => f.abbr && f.abbr !== 'PR') // contiguous+AK+HI only; drop PR (not renderable well on albersUsa anyway)
-  .map(f => {
-    const d = path(f);
-    const c = projection(geoCentroid(f));
-    const b = path.bounds(f);
-    return { abbr: f.abbr, name: f.stateName, d, cx: c ? c[0] : null, cy: c ? c[1] : null, bbox: b };
-  })
-  .filter(p => p.d);
-
-// derive true state per rooftop from lat/lng via point-in-polygon against unprojected geometry
+// derive true state per rooftop from lat/lng via point-in-polygon, since the sheet's free-text state column is inconsistent
 function deriveState(lng, lat) {
   for (const f of geo.features) {
     if (f.abbr && geoContains(f, [lng, lat])) return f.abbr;
@@ -53,7 +47,6 @@ const rooftops = rows.map(r => {
   let lat = null, lng = null;
   try { const g = JSON.parse(r.geo_coordinates); lat = g.lat; lng = g.lng; } catch (e) {}
   const abbr = (lat != null && lng != null) ? deriveState(lng, lat) : null;
-  const p = (lat != null && lng != null) ? projection([lng, lat]) : null;
   return {
     id: r.rooftop_id,
     name: r.rooftop_name,
@@ -67,14 +60,13 @@ const rooftops = rows.map(r => {
     zip: r.zipcode,
     accountType: r.account_type,
     accountSubType: r.account_sub_type,
-    lat, lng,
-    px: p ? p[0] : null, py: p ? p[1] : null
+    lat, lng
   };
 });
 
 const noState = rooftops.filter(r => !r.stateAbbr).length;
 console.error('rooftops:', rooftops.length, 'unmatched to a US state:', noState);
 
-fs.writeFileSync('map-paths.json', JSON.stringify(paths));
+fs.writeFileSync('state-geo.json', JSON.stringify(stateGeo));
 fs.writeFileSync('rooftops.json', JSON.stringify(rooftops));
-console.error('wrote map-paths.json (' + paths.length + ' states) and rooftops.json');
+console.error('wrote state-geo.json (' + stateGeo.features.length + ' states) and rooftops.json');

@@ -1,5 +1,7 @@
 <title>Rooftop Coverage</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <style>
 :root{
   --bg:#faf8f3; --surface:#ffffff; --border:#e3ded0; --border-strong:#cfc8b6;
@@ -25,6 +27,7 @@
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.35);
 }
 *{box-sizing:border-box;}
+[hidden]{display:none!important;}
 body{background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif; padding:20px 20px 40px; display:flex; flex-direction:column; gap:16px;}
 h1,h2,h3{font-family:"Source Serif 4",Georgia,serif; margin:0; text-wrap:balance;}
 .eyebrow{font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); font-weight:600;}
@@ -49,26 +52,15 @@ header.top h1{font-size:26px; font-weight:600;}
 .chip.active{background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:600;}
 
 .layout{display:flex; gap:16px; align-items:stretch; flex-wrap:wrap;}
-.map-card{flex:1.7; min-width:340px;}
+.map-card{flex:1.7; min-width:340px; display:flex; flex-direction:column;}
 .side-card{flex:1; min-width:260px; display:flex; flex-direction:column; gap:14px;}
 .map-caption{font-size:12px; color:var(--ink-faint); margin-bottom:10px;}
-.map-viewport{position:relative; overflow:hidden; border-radius:8px; background:var(--bg);}
-svg#usmap{width:100%; height:auto; display:block; cursor:grab; touch-action:none;}
-svg#usmap.dragging{cursor:grabbing;}
-svg#usmap path.state{stroke:var(--border-strong); stroke-width:.6; cursor:pointer; transition:opacity .15s, stroke-width .15s;}
-svg#usmap path.state:hover{stroke:var(--ink); stroke-width:1.2;}
-svg#usmap path.state.selected{stroke:var(--ink); stroke-width:2.2; filter:drop-shadow(0 0 3px rgba(0,0,0,.25));}
-svg#usmap.has-selection path.state:not(.selected){opacity:.42;}
-svg#usmap text.state-label{font-size:6.5px; fill:var(--ink); paint-order:stroke; stroke:var(--surface); stroke-width:2.5px; pointer-events:none; font-weight:700; text-anchor:middle; dominant-baseline:middle;}
-.zoom-controls{position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:5px; z-index:2;}
-.zoom-controls button{width:26px; height:26px; border-radius:6px; border:1px solid var(--border-strong); background:var(--surface); color:var(--ink); font-size:15px; cursor:pointer; line-height:1; display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow); font-family:inherit;}
-.zoom-controls button:hover{border-color:var(--accent); color:var(--accent);}
-
-.city-map-inline{display:flex; flex-direction:column; flex:1; min-height:220px;}
-svg#citymap{width:100%; flex:1; min-height:0; max-height:380px; display:block;}
-svg#citymap .outline{fill:var(--accent-soft); stroke:var(--border-strong);}
-svg#citymap circle:hover{stroke:var(--ink);}
-svg#citymap text.city-label{fill:var(--ink); paint-order:stroke; stroke:var(--surface); pointer-events:none; font-weight:600;}
+#usmap{width:100%; height:460px; border-radius:8px; background:var(--bg); font-family:inherit;}
+#usmap .leaflet-interactive{cursor:pointer;}
+.city-map-inline{display:flex; flex-direction:column; flex:1; min-height:260px;}
+#citymap{width:100%; flex:1; min-height:0; border-radius:8px; background:var(--bg); font-family:inherit;}
+.leaflet-tooltip{font-family:inherit; font-size:12px;}
+.leaflet-control-attribution{font-size:9px;}
 
 .legend{display:flex; align-items:center; gap:8px; font-size:11px; color:var(--ink-soft); margin-top:8px;}
 .legend .sw{width:16px; height:10px; border-radius:2px; display:inline-block;}
@@ -118,17 +110,6 @@ footer.note{font-size:11px; color:var(--ink-faint); line-height:1.5;}
 }
 </style>
 
-<svg width="0" height="0" style="position:absolute; pointer-events:none">
-  <defs>
-    <filter id="terrainTexture" x="-20%" y="-20%" width="140%" height="140%">
-      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" result="noise"/>
-      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0.32  0 0 0 0 0.30  0 0 0 0 0.18  0.22 0.22 0.22 0 0" result="tint"/>
-      <feComposite in="tint" in2="SourceGraphic" operator="in" result="texture"/>
-      <feBlend in="SourceGraphic" in2="texture" mode="multiply"/>
-    </filter>
-  </defs>
-</svg>
-
 <header class="top">
   <div class="title-block">
     <span class="eyebrow">Spyne · TAM Coverage</span>
@@ -154,15 +135,8 @@ footer.note{font-size:11px; color:var(--ink-faint); line-height:1.5;}
 
 <div class="layout">
   <div class="card map-card">
-    <div class="map-caption">Colour = rooftop count for the active filters. Click a state to highlight it and filter the table below. Drag to pan, use the controls to zoom.</div>
-    <div class="map-viewport">
-      <div class="zoom-controls">
-        <button id="zoomIn" type="button" aria-label="Zoom in">+</button>
-        <button id="zoomOut" type="button" aria-label="Zoom out">–</button>
-        <button id="zoomReset" type="button" aria-label="Reset view">⟳</button>
-      </div>
-      <svg id="usmap" viewBox="0 0 975 610" xmlns="http://www.w3.org/2000/svg"></svg>
-    </div>
+    <div class="map-caption">Colour = rooftop count for the active filters. Click a state to highlight it and filter the table below. Scroll or use the +/– control to zoom, drag to pan.</div>
+    <div id="usmap"></div>
     <div class="legend">
       <span>Fewer</span>
       <span class="legend-scale" id="legendScale"></span>
@@ -170,7 +144,29 @@ footer.note{font-size:11px; color:var(--ink-faint); line-height:1.5;}
     </div>
   </div>
 
-  <div class="card side-card" id="sideCard"></div>
+  <div class="card side-card" id="sideCard">
+    <div id="overviewPanel">
+      <div class="eyebrow">National overview</div>
+      <div class="big"><span class="n tabular" id="ovRooftops">–</span><span class="muted" id="ovSub"></span></div>
+      <div class="rank-list" id="rankList"></div>
+      <div class="muted">Click a state on the map, or in this list, to drill in.</div>
+    </div>
+    <div id="statePanel" hidden style="display:flex; flex-direction:column; flex:1; min-height:0; gap:14px;">
+      <button class="back-btn" id="backBtn">← Back to overview</button>
+      <div class="eyebrow" id="stateEyebrow"></div>
+      <h3 style="font-size:20px;" id="stateName"></h3>
+      <div class="metrics">
+        <div class="stat" style="align-items:flex-start;"><span class="n tabular" id="stateCompanies"></span><span class="l">Companies</span></div>
+        <div class="stat" style="align-items:flex-start;"><span class="n tabular" id="stateRooftops"></span><span class="l">Rooftops</span></div>
+      </div>
+      <div class="phase-bars" id="phaseBars"></div>
+      <div class="city-map-inline">
+        <div class="eyebrow">Rooftop map</div>
+        <div class="count tabular muted" id="cityMapCount" style="margin:2px 0 8px;"></div>
+        <div id="citymap"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="card table-card" id="tableCard">
@@ -198,64 +194,34 @@ function stagePhase(s){ return s.split(' ').slice(1).join(' '); }
 const KEPT_PHASES = ['Live', 'Onboarding'];
 // Sales Drop / Future Churn / Churned rows are dropped entirely, not just chip-filtered
 const ROOFTOPS = __ROOFTOPS_JSON__.filter(r => KEPT_PHASES.includes(stagePhase(r.stage)));
-const STATE_PATHS = __STATE_PATHS_JSON__;
+const STATE_GEO = __STATE_GEO_JSON__;
+const STATE_BY_ABBR = {};
+STATE_GEO.features.forEach(f => { STATE_BY_ABBR[f.properties.abbr] = f; });
 
 const PHASE_COLOR = { 'Live': 'var(--live)', 'Onboarding': 'var(--onboarding)' };
 
+// Esri World Imagery (satellite) is free, no API key, used here under Esri's public basemap terms.
+const ESRI_IMAGERY_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const ESRI_LABELS_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}';
+const ESRI_ATTRIB = 'Tiles &copy; Esri &mdash; Esri, Maxar, Earthstar Geographics';
+
 const state = { product: 'All', phase: 'All', selected: null, sortKey: 'name', sortDir: 1, search: '' };
-const zoom = { scale: 1, tx: 0, ty: 0 };
-let panMoved = false;
 
-function applyZoom(){
-  const g = document.getElementById('mapG');
-  if (g) g.setAttribute('transform', `translate(${zoom.tx} ${zoom.ty}) scale(${zoom.scale})`);
-}
-function zoomBy(factor, cx, cy){
-  const next = Math.min(8, Math.max(1, zoom.scale * factor));
-  const f = next / zoom.scale;
-  zoom.tx = cx - (cx - zoom.tx) * f;
-  zoom.ty = cy - (cy - zoom.ty) * f;
-  zoom.scale = next;
-  if (zoom.scale === 1) { zoom.tx = 0; zoom.ty = 0; }
-  applyZoom();
+function addSatelliteLayers(map){
+  L.tileLayer(ESRI_IMAGERY_URL, { maxZoom: 19, attribution: ESRI_ATTRIB }).addTo(map);
+  L.tileLayer(ESRI_LABELS_URL, { maxZoom: 19, opacity: 0.9 }).addTo(map);
 }
 
-(function setupMapPanZoom(){
-  const svg = document.getElementById('usmap');
-  const VB = 975;
-  document.getElementById('zoomIn').onclick = () => zoomBy(1.35, 487.5, 305);
-  document.getElementById('zoomOut').onclick = () => zoomBy(1/1.35, 487.5, 305);
-  document.getElementById('zoomReset').onclick = () => { zoom.scale = 1; zoom.tx = 0; zoom.ty = 0; applyZoom(); };
+const usMap = L.map('usmap', { minZoom: 3, maxZoom: 10, worldCopyJump: false }).setView([39.5, -98.35], 4);
+addSatelliteLayers(usMap);
+let statesLayer = null;
 
-  let dragging = false, start = null, pointerId = null;
-  svg.addEventListener('pointerdown', e => {
-    dragging = true; panMoved = false; pointerId = e.pointerId;
-    start = { x: e.clientX, y: e.clientY, tx: zoom.tx, ty: zoom.ty };
-  });
-  svg.addEventListener('pointermove', e => {
-    if (!dragging) return;
-    const dx = e.clientX - start.x, dy = e.clientY - start.y;
-    if (!panMoved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
-      panMoved = true;
-      svg.classList.add('dragging');
-      svg.setPointerCapture(pointerId); // only capture once it's a real drag, so plain clicks still hit the state path
-    }
-    if (!panMoved) return;
-    const unit = VB / svg.getBoundingClientRect().width;
-    zoom.tx = start.tx + dx * unit;
-    zoom.ty = start.ty + dy * unit;
-    applyZoom();
-  });
-  svg.addEventListener('pointerup', () => { dragging = false; svg.classList.remove('dragging'); });
-  svg.addEventListener('wheel', e => {
-    e.preventDefault();
-    const rect = svg.getBoundingClientRect();
-    const unit = VB / rect.width;
-    const cx = (e.clientX - rect.left) * unit;
-    const cy = (e.clientY - rect.top) * unit;
-    zoomBy(e.deltaY < 0 ? 1.15 : 1/1.15, cx, cy);
-  }, { passive: false });
-})();
+let cityMap = null, cityOutlineLayer = null, cityMarkersLayer = null;
+function ensureCityMap(){
+  if (cityMap) return;
+  cityMap = L.map('citymap', { minZoom: 3, maxZoom: 14 }).setView([37.8, -96], 4);
+  addSatelliteLayers(cityMap);
+}
 
 function applyFilters(){
   return ROOFTOPS.filter(r =>
@@ -295,40 +261,28 @@ function render(){
   document.getElementById('statRooftops').textContent = filtered.length;
   document.getElementById('statStates').textContent = Object.keys(byState).length;
 
-  // map
-  const svg = document.getElementById('usmap');
-  svg.innerHTML = '';
-  svg.classList.toggle('has-selection', !!state.selected);
-  const NS = 'http://www.w3.org/2000/svg';
-  const g = document.createElementNS(NS, 'g');
-  g.id = 'mapG';
-  g.setAttribute('transform', `translate(${zoom.tx} ${zoom.ty}) scale(${zoom.scale})`);
-  svg.appendChild(g);
-  STATE_PATHS.forEach(p => {
-    const count = (byState[p.abbr] || []).length;
-    const t = count === 0 ? 0 : 0.15 + 0.85 * (Math.log(count+1) / Math.log(maxCount+1));
-    const fill = count === 0 ? 'var(--nostate)' : lerpColor(SCALE_LIGHT, SCALE_DARK, t);
-    const path = document.createElementNS(NS,'path');
-    path.setAttribute('d', p.d);
-    path.setAttribute('fill', fill);
-    path.setAttribute('filter', 'url(#terrainTexture)');
-    path.setAttribute('class', 'state' + (state.selected === p.abbr ? ' selected' : ''));
-    path.dataset.abbr = p.abbr;
-    path.addEventListener('click', () => { if (!panMoved) selectState(p.abbr); });
-    const title = document.createElementNS(NS,'title');
-    title.textContent = `${p.name}: ${count} rooftop${count===1?'':'s'}`;
-    path.appendChild(title);
-    g.appendChild(path);
-  });
-  STATE_PATHS.forEach(p => {
-    if (p.cx == null) return;
-    const label = document.createElementNS(NS,'text');
-    label.setAttribute('x', p.cx);
-    label.setAttribute('y', p.cy);
-    label.setAttribute('class', 'state-label');
-    label.textContent = p.name;
-    g.appendChild(label);
-  });
+  // national choropleth
+  if (statesLayer) usMap.removeLayer(statesLayer);
+  statesLayer = L.geoJSON(STATE_GEO, {
+    style: f => {
+      const abbr = f.properties.abbr;
+      const count = (byState[abbr] || []).length;
+      const t = count === 0 ? 0 : 0.15 + 0.85 * (Math.log(count + 1) / Math.log(maxCount + 1));
+      const fillColor = count === 0 ? 'var(--nostate)' : lerpColor(SCALE_LIGHT, SCALE_DARK, t);
+      const isSelected = state.selected === abbr;
+      return {
+        fillColor, fillOpacity: state.selected ? (isSelected ? 0.75 : 0.3) : 0.6,
+        color: isSelected ? '#ffffff' : 'rgba(255,255,255,0.5)',
+        weight: isSelected ? 2.5 : 1
+      };
+    },
+    onEachFeature: (f, layer) => {
+      const abbr = f.properties.abbr;
+      const count = (byState[abbr] || []).length;
+      layer.bindTooltip(`${f.properties.name}: ${count} rooftop${count === 1 ? '' : 's'}`);
+      layer.on('click', () => selectState(abbr));
+    }
+  }).addTo(usMap);
 
   // legend
   const legend = document.getElementById('legendScale');
@@ -346,111 +300,76 @@ function render(){
 }
 
 function renderCityMap(byState){
-  const svg = document.getElementById('citymap');
   const abbr = state.selected;
-  if (!abbr || !svg) return;
-  const p = STATE_PATHS.find(sp => sp.abbr === abbr);
+  if (!abbr) return;
+  ensureCityMap();
+  const feature = STATE_BY_ABBR[abbr];
   const rows = byState[abbr] || [];
-  const [[x0,y0],[x1,y1]] = p.bbox;
-  const w = x1 - x0, h = y1 - y0, pad = Math.max(w,h) * 0.08;
-  const unit = Math.max(w, h) / 220;
 
   const cities = new Set(rows.map(r => r.city).filter(Boolean)).size;
   document.getElementById('cityMapCount').textContent = `${rows.length} rooftop${rows.length===1?'':'s'} · ${cities} cities`;
 
-  svg.setAttribute('viewBox', `${x0-pad} ${y0-pad} ${w+pad*2} ${h+pad*2}`);
-  svg.innerHTML = '';
+  if (cityOutlineLayer) cityMap.removeLayer(cityOutlineLayer);
+  if (cityMarkersLayer) cityMap.removeLayer(cityMarkersLayer);
 
-  const outline = document.createElementNS('http://www.w3.org/2000/svg','path');
-  outline.setAttribute('d', p.d);
-  outline.setAttribute('class', 'outline');
-  outline.setAttribute('filter', 'url(#terrainTexture)');
-  outline.setAttribute('stroke-width', unit * 1.1);
-  svg.appendChild(outline);
+  cityOutlineLayer = L.geoJSON(feature, { style: { fill: false, color: '#ffffff', weight: 2, dashArray: '4 3' } }).addTo(cityMap);
 
-  rows.forEach(r => {
-    if (r.px == null) return;
-    const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
-    c.setAttribute('cx', r.px);
-    c.setAttribute('cy', r.py);
-    c.setAttribute('r', unit * 1.6);
-    c.setAttribute('fill', PHASE_COLOR[stagePhase(r.stage)] || 'var(--ink-faint)');
-    c.setAttribute('stroke', 'var(--surface)');
-    c.setAttribute('stroke-width', unit * 0.5);
-    const title = document.createElementNS('http://www.w3.org/2000/svg','title');
-    title.textContent = `${r.name} — ${r.city} (${r.stage})`;
-    c.appendChild(title);
-    svg.appendChild(c);
-  });
+  cityMarkersLayer = L.layerGroup(rows.filter(r => r.lat != null).map(r =>
+    L.circleMarker([r.lat, r.lng], {
+      radius: 5,
+      fillColor: PHASE_COLOR[stagePhase(r.stage)] || 'var(--ink-faint)',
+      fillOpacity: 0.9, color: '#ffffff', weight: 1
+    }).bindTooltip(`${r.name} — ${r.city} (${r.stage})`)
+  )).addTo(cityMap);
 
-  // label the cities with the most rooftops here ("major" = most represented, since no population data is loaded)
-  const byCity = {};
-  rows.forEach(r => {
-    if (r.px == null || !r.city) return;
-    (byCity[r.city] = byCity[r.city] || []).push(r);
-  });
-  const majorCities = Object.entries(byCity).sort((a,b) => b[1].length - a[1].length).slice(0, 7);
-  majorCities.forEach(([city, list]) => {
-    const cx = list.reduce((s,r) => s + r.px, 0) / list.length;
-    const cy = list.reduce((s,r) => s + r.py, 0) / list.length;
-    const label = document.createElementNS('http://www.w3.org/2000/svg','text');
-    label.setAttribute('x', cx);
-    label.setAttribute('y', cy - unit * 2.2);
-    label.setAttribute('class', 'city-label');
-    label.setAttribute('text-anchor', 'middle');
-    // font/stroke sized off `unit` (not a fixed px) so it stays legible relative to the
-    // state's own bounding box instead of ballooning for small states in a fixed-height box
-    label.style.fontSize = (unit * 3.4) + 'px';
-    label.style.strokeWidth = (unit * 1.1) + 'px';
-    label.textContent = city;
-    svg.appendChild(label);
+  requestAnimationFrame(() => {
+    cityMap.invalidateSize();
+    cityMap.fitBounds(cityOutlineLayer.getBounds(), { padding: [16, 16] });
   });
 }
 
 function renderSide(byState, filtered){
-  const card = document.getElementById('sideCard');
+  const overview = document.getElementById('overviewPanel');
+  const panel = document.getElementById('statePanel');
+
   if (!state.selected){
+    overview.hidden = false;
+    panel.hidden = true;
     const ranked = Object.entries(byState).sort((a,b) => b[1].length - a[1].length).slice(0,8);
-    card.innerHTML = `
-      <div class="eyebrow">National overview</div>
-      <div class="big"><span class="n tabular">${filtered.length}</span><span class="muted">rooftops across ${Object.keys(byState).length} states</span></div>
-      <div class="rank-list" id="rankList"></div>
-      <div class="muted">Click a state on the map, or in this list, to drill in.</div>
-    `;
+    document.getElementById('ovRooftops').textContent = filtered.length;
+    document.getElementById('ovSub').textContent = `rooftops across ${Object.keys(byState).length} states`;
     const rl = document.getElementById('rankList');
+    rl.innerHTML = '';
     ranked.forEach(([abbr, list]) => {
       const b = document.createElement('button');
-      b.innerHTML = `<span>${STATE_PATHS.find(p=>p.abbr===abbr)?.name || abbr}</span><span class="n tabular">${list.length}</span>`;
+      b.innerHTML = `<span>${STATE_BY_ABBR[abbr]?.properties.name || abbr}</span><span class="n tabular">${list.length}</span>`;
       b.onclick = () => selectState(abbr);
       rl.appendChild(b);
     });
     return;
   }
+
+  overview.hidden = true;
+  panel.hidden = false;
   const abbr = state.selected;
-  const name = STATE_PATHS.find(p => p.abbr === abbr)?.name || abbr;
+  const name = STATE_BY_ABBR[abbr]?.properties.name || abbr;
   const rows = byState[abbr] || [];
   const companies = new Set(rows.map(r => r.enterpriseId)).size;
   const phaseCounts = {};
   rows.forEach(r => { const ph = stagePhase(r.stage); phaseCounts[ph] = (phaseCounts[ph]||0)+1; });
   const maxPhase = Math.max(1, ...Object.values(phaseCounts));
 
-  card.innerHTML = `
-    <button class="back-btn" id="backBtn">← Back to overview</button>
-    <div class="eyebrow">${['Studio','Vini'].includes(state.product) ? state.product+' · ' : ''}${state.phase !== 'All' ? state.phase : ''}</div>
-    <h3 style="font-size:20px;">${name}</h3>
-    <div class="metrics">
-      <div class="stat" style="align-items:flex-start;"><span class="n tabular">${companies}</span><span class="l">Companies</span></div>
-      <div class="stat" style="align-items:flex-start;"><span class="n tabular">${rows.length}</span><span class="l">Rooftops</span></div>
-    </div>
-    <div class="phase-bars" id="phaseBars"></div>
-    <div class="city-map-inline">
-      <div class="eyebrow">Rooftop map</div>
-      <div class="count tabular muted" id="cityMapCount" style="margin:2px 0 8px;"></div>
-      <svg id="citymap" xmlns="http://www.w3.org/2000/svg"></svg>
-    </div>
-  `;
   document.getElementById('backBtn').onclick = () => selectState(null);
+  document.getElementById('stateEyebrow').textContent = [
+    ['Studio','Vini'].includes(state.product) ? state.product : null,
+    state.phase !== 'All' ? state.phase : null
+  ].filter(Boolean).join(' · ');
+  document.getElementById('stateName').textContent = name;
+  document.getElementById('stateCompanies').textContent = companies;
+  document.getElementById('stateRooftops').textContent = rows.length;
+
   const pb = document.getElementById('phaseBars');
+  pb.innerHTML = '';
   Object.entries(phaseCounts).sort((a,b)=>b[1]-a[1]).forEach(([phase, count]) => {
     const row = document.createElement('div');
     row.className = 'phase-bar-row';
@@ -504,7 +423,7 @@ function renderTable(filtered){
     return av.toString().localeCompare(bv.toString(), undefined, {numeric:true}) * state.sortDir;
   });
 
-  document.getElementById('tableTitle').textContent = abbr ? (STATE_PATHS.find(p=>p.abbr===abbr)?.name + ' — account list') : 'All rooftops';
+  document.getElementById('tableTitle').textContent = abbr ? (STATE_BY_ABBR[abbr]?.properties.name + ' — account list') : 'All rooftops';
   document.getElementById('tableCount').textContent = `${rows.length} of ${filtered.length} shown`;
 
   renderTableHead();
