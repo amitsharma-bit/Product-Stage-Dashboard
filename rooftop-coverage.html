@@ -72,10 +72,10 @@ svg#usmap text.state-label{font-size:6.5px; fill:var(--ink); paint-order:stroke;
 .zoom-controls button:hover{border-color:var(--accent); color:var(--accent);}
 
 .city-map-inline{display:flex; flex-direction:column; flex:1; min-height:220px;}
-svg#citymap{width:100%; flex:1; min-height:0; display:block;}
+svg#citymap{width:100%; flex:1; min-height:0; max-height:380px; display:block;}
 svg#citymap .outline{fill:var(--accent-soft); stroke:var(--border-strong);}
 svg#citymap circle:hover{stroke:var(--ink);}
-svg#citymap text.city-label{font-size:6.5px; fill:var(--ink); paint-order:stroke; stroke:var(--surface); stroke-width:2px; pointer-events:none; font-weight:600;}
+svg#citymap text.city-label{fill:var(--ink); paint-order:stroke; stroke:var(--surface); pointer-events:none; font-weight:600;}
 
 .legend{display:flex; align-items:center; gap:8px; font-size:11px; color:var(--ink-soft); margin-top:8px;}
 .legend .sw{width:16px; height:10px; border-radius:2px; display:inline-block;}
@@ -405,6 +405,10 @@ function renderCityMap(byState){
     label.setAttribute('y', cy - unit * 2.2);
     label.setAttribute('class', 'city-label');
     label.setAttribute('text-anchor', 'middle');
+    // font/stroke sized off `unit` (not a fixed px) so it stays legible relative to the
+    // state's own bounding box instead of ballooning for small states in a fixed-height box
+    label.style.fontSize = (unit * 3.4) + 'px';
+    label.style.strokeWidth = (unit * 1.1) + 'px';
     label.textContent = city;
     svg.appendChild(label);
   });
