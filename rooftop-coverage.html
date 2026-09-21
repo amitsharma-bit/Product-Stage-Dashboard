@@ -55,7 +55,7 @@ header.top h1{font-size:26px; font-weight:600;}
 .chip:hover{border-color:var(--accent);}
 .chip.active{background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:600;}
 
-.layout{display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap;}
+.layout{display:flex; gap:16px; align-items:stretch; flex-wrap:wrap;}
 .map-card{flex:1.7; min-width:340px;}
 .side-card{flex:1; min-width:260px; display:flex; flex-direction:column; gap:14px;}
 .map-caption{font-size:12px; color:var(--ink-faint); margin-bottom:10px;}
@@ -71,8 +71,8 @@ svg#usmap text.state-label{font-size:6.5px; fill:var(--ink); paint-order:stroke;
 .zoom-controls button{width:26px; height:26px; border-radius:6px; border:1px solid var(--border-strong); background:var(--surface); color:var(--ink); font-size:15px; cursor:pointer; line-height:1; display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow); font-family:inherit;}
 .zoom-controls button:hover{border-color:var(--accent); color:var(--accent);}
 
-.city-map-card{width:100%;}
-svg#citymap{width:100%; height:auto; max-height:520px; display:block;}
+.city-map-inline{display:flex; flex-direction:column; flex:1; min-height:220px;}
+svg#citymap{width:100%; flex:1; min-height:0; display:block;}
 svg#citymap .outline{fill:var(--accent-soft); stroke:var(--border-strong);}
 svg#citymap circle:hover{stroke:var(--ink);}
 svg#citymap text.city-label{font-size:6.5px; fill:var(--ink); paint-order:stroke; stroke:var(--surface); stroke-width:2px; pointer-events:none; font-weight:600;}
@@ -178,12 +178,6 @@ footer.note{font-size:11px; color:var(--ink-faint); line-height:1.5;}
   </div>
 
   <div class="card side-card" id="sideCard"></div>
-</div>
-
-<div class="card city-map-card" id="cityMapCard" hidden>
-  <div class="eyebrow" id="cityMapTitle"></div>
-  <div class="count tabular muted" id="cityMapCount" style="margin:2px 0 10px;"></div>
-  <svg id="citymap" xmlns="http://www.w3.org/2000/svg"></svg>
 </div>
 
 <div class="card table-card" id="tableCard">
@@ -359,20 +353,17 @@ function render(){
 }
 
 function renderCityMap(byState){
-  const card = document.getElementById('cityMapCard');
-  const abbr = state.selected;
-  if (!abbr){ card.hidden = true; return; }
-  card.hidden = false;
   const svg = document.getElementById('citymap');
+  const abbr = state.selected;
+  if (!abbr || !svg) return;
   const p = STATE_PATHS.find(sp => sp.abbr === abbr);
   const rows = byState[abbr] || [];
   const [[x0,y0],[x1,y1]] = p.bbox;
   const w = x1 - x0, h = y1 - y0, pad = Math.max(w,h) * 0.08;
   const unit = Math.max(w, h) / 220;
 
-  document.getElementById('cityMapTitle').textContent = `${p.name} — rooftop map`;
   const cities = new Set(rows.map(r => r.city).filter(Boolean)).size;
-  document.getElementById('cityMapCount').textContent = `${rows.length} rooftop${rows.length===1?'':'s'} plotted by pincode · ${cities} cities`;
+  document.getElementById('cityMapCount').textContent = `${rows.length} rooftop${rows.length===1?'':'s'} · ${cities} cities`;
 
   svg.setAttribute('viewBox', `${x0-pad} ${y0-pad} ${w+pad*2} ${h+pad*2}`);
   svg.innerHTML = '';
@@ -455,6 +446,11 @@ function renderSide(byState, filtered){
       <div class="stat" style="align-items:flex-start;"><span class="n tabular">${rows.length}</span><span class="l">Rooftops</span></div>
     </div>
     <div class="phase-bars" id="phaseBars"></div>
+    <div class="city-map-inline">
+      <div class="eyebrow">Rooftop map</div>
+      <div class="count tabular muted" id="cityMapCount" style="margin:2px 0 8px;"></div>
+      <svg id="citymap" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
   `;
   document.getElementById('backBtn').onclick = () => selectState(null);
   const pb = document.getElementById('phaseBars');
